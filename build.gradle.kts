@@ -1,0 +1,30 @@
+plugins {
+    id("java")
+    id("application")
+    id("com.gradleup.shadow") version "9.3.0"
+}
+
+group = "edu.mines"
+version = "1.0-SNAPSHOT"
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation("com.pi4j:pi4j-plugin-raspberrypi:3.0.3")
+    implementation("com.pi4j:pi4j-plugin-gpiod:3.0.3")
+    implementation("com.pi4j:pi4j-core:3.0.3")
+    implementation("ch.qos.logback:logback-classic:1.5.21")
+    implementation("com.google.code.gson:gson:2.7")
+    implementation("net.dv8tion:JDA:6.1.2")
+    implementation("org.xerial:sqlite-jdbc:3.51.1.0")
+}
+
+tasks.test {
+    useJUnitPlatform()
+}
+
+application {
+    mainClass.set("edu.mines.mmsbot.MMSApp")
+}
