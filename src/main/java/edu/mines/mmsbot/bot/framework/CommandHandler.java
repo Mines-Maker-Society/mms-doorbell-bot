@@ -7,7 +7,7 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import java.util.List;
 
 public class CommandHandler extends ListenerAdapter implements MMSContext {
-    @Override
+    @Override // Use the AbstractCommand class if you want to create new commands. This will route the event to it properly.
     public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
         final String name = event.getName();
         final List<AbstractCommand> commandList = runtime().getCommandList();

@@ -4,11 +4,14 @@ import edu.mines.mmsbot.bot.BotRuntime;
 import edu.mines.mmsbot.bot.commands.*;
 import edu.mines.mmsbot.bot.framework.CommandHandler;
 import edu.mines.mmsbot.bot.framework.SpaceStatus;
+import edu.mines.mmsbot.bot.listeners.LockChannelListener;
+import edu.mines.mmsbot.bot.listeners.ClaimListener;
+import edu.mines.mmsbot.bot.listeners.StatsListener;
 import edu.mines.mmsbot.data.Config;
 import edu.mines.mmsbot.data.JsonSerializable;
 import edu.mines.mmsbot.data.OperationStatistics;
+import edu.mines.mmsbot.pi.DoorMonitor;
 import edu.mines.mmsbot.util.Args;
-import edu.mines.mmsbot.web.DoorMonitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,7 +30,7 @@ public class MMSApp {
     private SpaceStatus spaceStatus;
 
     /*
-         ⢸⠂⠀⠀⠀⠘⣧⠀⠀⣟⠛⠲⢤⡀⠀⠀⣰⠏⠀⠀⠀⠀⠀⢹⡀
+        ⠀⢸⠂⠀⠀⠀⠘⣧⠀⠀⣟⠛⠲⢤⡀⠀⠀⣰⠏⠀⠀⠀⠀⠀⢹⡀
         ⠀⡿⠀⠀⠀⠀⠀⠈⢷⡀⢻⡀⠀⠀⠙⢦⣰⠏⠀⠀⠀⠀⠀⠀⢸⠀
         ⠀⡇⠀⠀⠀⠀⠀⠀⢀⣻⠞⠛⠀⠀⠀⠀⠻⠀⠀⠀⠀⠀⠀⠀⢸⠀
         ⠀⡇⠀⠀⠀⠀⠀⠀⠛⠓⠒⠓⠓⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⠀ You like trying to update
@@ -62,8 +65,8 @@ public class MMSApp {
         try { // Listeners and commands added here because im too lazy to do reflection
             runtime = new BotRuntime(
                     config,
-                    List.of(new PingCommand(), new OverrideCommand(), new StatsCommand(), new RoleCommand()),
-                    List.of(new CommandHandler(), new StatsListener())
+                    List.of(new PingCommand(), new LockCommand(), new OpenCommand(), new StatsCommand(), new RoleCommand(), new DataCommand(), new ResumeCommand()),
+                    List.of(new CommandHandler(), new StatsListener(), new ClaimListener(), new LockChannelListener())
             );
         } catch (InterruptedException ex) {
             logger.error("Failed to initialize bot: ", ex);
@@ -73,11 +76,25 @@ public class MMSApp {
         spaceStatus = new SpaceStatus(); // This depends on a bot being enabled, as it needs to set the status.
 
         logger.info("Starting door monitor...");
-        doorMonitor = new DoorMonitor();
-        doorMonitor.setupMonitor();
-        doorMonitor.getMonitorThread().start();
+        try {
+            doorMonitor = new DoorMonitor(config.virtual);
+            doorMonitor.setupMonitor();
+            doorMonitor.getMonitorThread().start();
+        } catch (IllegalStateException e) {
+            logger.error("Failed to initialize GPIO: ", e);
+        }
+
+        logger.info("Adding shutdown hooks...");
+        Runtime.getRuntime().addShutdownHook(new Thread(this::onShutdown));
 
         logger.info("Bot is now fully operational!"); // :3
+    }
+
+    // Not super crucial, but just provides consistency when testing
+    private void onShutdown() {
+        doorMonitor.stopMonitoring();
+        runtime.getJda().shutdown();
+        statistics.closeDatabase();
     }
 
     private void loadConfig(Args args) {

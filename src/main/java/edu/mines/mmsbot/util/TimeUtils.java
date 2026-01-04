@@ -17,51 +17,48 @@ public final class TimeUtils {
         return sdf.format(date);
     }
 
-    public static String formatDuration(long milliseconds, boolean millis) {
+    public static String formatDuration(long milliseconds, boolean includeMillis) {
         if (milliseconds < 0) {
             throw new IllegalArgumentException("Duration must not be negative.");
         }
 
-        long days = milliseconds / (1000 * 60 * 60 * 24);
-        long hours = (milliseconds % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60);
-        long minutes = (milliseconds % (1000 * 60 * 60)) / (1000 * 60);
-        long seconds = (milliseconds % (1000 * 60)) / 1000;
-        long remainingMillis = milliseconds % 1000;
+        final long DAY = 86_400_000;
+        final long HOUR = 3_600_000;
+        final long MINUTE = 60_000;
+        final long SECOND = 1_000;
 
         StringBuilder result = new StringBuilder();
 
-        if (days > 0) {
-            result.append(days).append(days == 1 ? " day" : " days");
-            if (hours > 0 || minutes > 0 || seconds > 0 || remainingMillis > 0) {
-                result.append(", ");
-            }
-        }
-        if (hours > 0) {
-            result.append(hours).append(hours == 1 ? " hour" : " hours");
-            if (minutes > 0 || seconds > 0 || remainingMillis > 0) {
-                result.append(", ");
-            }
-        }
-        if (minutes > 0) {
-            result.append(minutes).append(minutes == 1 ? " minute" : " minutes");
-            if (seconds > 0 || remainingMillis > 0) {
-                result.append(", ");
-            }
-        }
-        if (seconds > 0) {
-            result.append(seconds).append(seconds == 1 ? " second" : " seconds");
-            if (remainingMillis > 0) {
-                result.append(", ");
-            }
-        }
-        if (remainingMillis > 0 && millis) {
-            result.append(remainingMillis).append(remainingMillis == 1 ? " millisecond" : " milliseconds");
+        milliseconds = appendUnit(result, milliseconds, DAY, "day");
+        milliseconds = appendUnit(result, milliseconds, HOUR, "hour");
+        milliseconds = appendUnit(result, milliseconds, MINUTE, "minute");
+        milliseconds = appendUnit(result, milliseconds, SECOND, "second");
+
+        if (includeMillis && milliseconds > 0) {
+            appendComma(result);
+            result.append(milliseconds)
+                    .append(milliseconds == 1 ? " millisecond" : " milliseconds");
         }
 
-        if (result.length() == 0) {
-            return "0 milliseconds";
-        }
+        return result.length() == 0 ? "0 milliseconds" : result.toString();
+    }
 
-        return result.toString();
+    private static long appendUnit(StringBuilder result, long remaining, long unitMillis, String name) {
+        long value = remaining / unitMillis;
+        if (value > 0) {
+            appendComma(result);
+            result.append(value)
+                    .append(' ')
+                    .append(name)
+                    .append(value == 1 ? "" : "s");
+            remaining %= unitMillis;
+        }
+        return remaining;
+    }
+
+    private static void appendComma(StringBuilder result) {
+        if (result.length() > 0) {
+            result.append(", ");
+        }
     }
 }

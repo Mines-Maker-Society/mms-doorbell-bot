@@ -8,6 +8,9 @@ import edu.mines.mmsbot.util.FileValidationUtils;
 
 import java.io.*;
 
+/**
+ * This is taken from ImproperIssues (ItziSpyder on GitHub) don't touch it unless its broken somehow.
+ */
 public interface JsonSerializable<T> {
 
     Gson gson = new GsonBuilder().setPrettyPrinting().serializeNulls().setLenient().create();

@@ -1,6 +1,5 @@
 package edu.mines.mmsbot.bot.commands;
 
-import edu.mines.mmsbot.MMSContext;
 import edu.mines.mmsbot.bot.framework.AbstractCommand;
 import edu.mines.mmsbot.util.EmbedUtils;
 import net.dv8tion.jda.api.entities.Member;
@@ -9,7 +8,7 @@ import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEve
 import net.dv8tion.jda.api.interactions.InteractionContextType;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 
-public class RoleCommand extends AbstractCommand implements MMSContext {
+public class RoleCommand extends AbstractCommand {
 
     public RoleCommand() {
         super(Commands.slash("doorbell-role","Run this command to add or remove yourself from the doorbell ping role.").setContexts(InteractionContextType.GUILD));
@@ -17,13 +16,7 @@ public class RoleCommand extends AbstractCommand implements MMSContext {
 
     @Override
     public void execute(SlashCommandInteractionEvent event) {
-        if (event.getGuild().getIdLong() != config().targetServer.serverID) {
-            event.replyEmbeds(EmbedUtils.defaultEmbed()
-                            .setDescription("This command can only be used in the Mines Maker Society Discord.")
-                            .build())
-                    .setEphemeral(true)
-                    .queue();
-        }
+        if (serverIncorrect(event)) return;
 
         Member member = event.getMember();
         if (member == null) {

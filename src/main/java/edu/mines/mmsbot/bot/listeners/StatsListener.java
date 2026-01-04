@@ -1,32 +1,31 @@
-package edu.mines.mmsbot.bot.commands;
+package edu.mines.mmsbot.bot.listeners;
 
 import edu.mines.mmsbot.MMSContext;
-import edu.mines.mmsbot.util.TimeUtils;
+import edu.mines.mmsbot.bot.commands.StatsCommand;
+import edu.mines.mmsbot.data.StatsReport.StatType;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jetbrains.annotations.NotNull;
 
+import java.time.Instant;
+
 public class StatsListener extends ListenerAdapter implements MMSContext {
 
     @Override
     public void onStringSelectInteraction(@NotNull StringSelectInteractionEvent event) {
-        if (!event.getComponentId().equals("stat-selector"))
-            return;
+        if (!event.getComponentId().equals("stat-selector")) return;
 
         event.deferEdit().queue();
 
-        long startTime = System.currentTimeMillis();
-        StatsCommand.StatType selected =
-                StatsCommand.StatType.valueOf(event.getSelectedOptions().getFirst().getValue());
+        long startTime = Instant.from(event.getTimeCreated()).toEpochMilli();
+        StatType selected = StatType.valueOf(event.getSelectedOptions().getFirst().getValue());
 
         MessageEmbed embed = runtime()
                 .getCommand(StatsCommand.class)
-                .generateStatistics(selected)
-                .setFooter("Retrieved in " + TimeUtils.formatDuration(System.currentTimeMillis() - startTime,true))
+                .getCachedEmbed(selected, startTime)
                 .build();
 
         event.getHook().editOriginalEmbeds(embed).queue();
     }
-
 }

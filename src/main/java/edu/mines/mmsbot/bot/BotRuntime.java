@@ -22,15 +22,15 @@ public class BotRuntime implements MMSContext {
     private final List<ListenerAdapter> listenersList;
 
     public BotRuntime(Config config, List<AbstractCommand> commands, List<ListenerAdapter> listeners) throws InterruptedException {
-        jda = JDABuilder.create(config.token, GatewayIntent.getIntents(GatewayIntent.ALL_INTENTS)) // I dare you to figure out what intents we actually need.
+        jda = JDABuilder.create(config.token, GatewayIntent.getIntents(GatewayIntent.ALL_INTENTS)) // The intents we actually need are left as an exercise to the reader.
                 .setStatus(OnlineStatus.ONLINE)
-                .build().awaitReady(); // DO NOT FORGET TO AWAIT FOR READY!!!!
+                .build().awaitReady(); // Do not forget.
 
         commandList = commands;
         listenersList = listeners;
         server = new SpaceDiscord(jda);
 
-        if (server.isVerified(true)) { // DO NOT MAKE THE MISTAKE OF FORGETTING TO .awaitReady() ON THE JDA!!!!
+        if (server.isVerified(true)) { // Did you .awaitReady()?
             log().info("Server verified successfully.");
         } else {
             log().warn("Server is not configured properly!");
@@ -48,7 +48,7 @@ public class BotRuntime implements MMSContext {
         }
     }
 
-    private void registerCommands(JDA jda, List<AbstractCommand> commandList) { // This part is self-explanatory
+    private void registerCommands(JDA jda, List<AbstractCommand> commandList) { // Me when I don't use reflection
         jda.retrieveCommands().submit().whenComplete((onlineData, error) -> {
             final List<SlashCommandData> updatedData = commandList.stream().map(AbstractCommand::getCommand).toList();
             if (error != null) {
