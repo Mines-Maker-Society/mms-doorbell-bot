@@ -4,8 +4,8 @@ import edu.mines.mmsbot.bot.BotRuntime;
 import edu.mines.mmsbot.bot.commands.*;
 import edu.mines.mmsbot.bot.framework.CommandHandler;
 import edu.mines.mmsbot.bot.framework.SpaceStatus;
-import edu.mines.mmsbot.bot.listeners.LockChannelListener;
 import edu.mines.mmsbot.bot.listeners.ClaimListener;
+import edu.mines.mmsbot.bot.listeners.LockChannelListener;
 import edu.mines.mmsbot.bot.listeners.StatsListener;
 import edu.mines.mmsbot.data.Config;
 import edu.mines.mmsbot.data.JsonSerializable;
@@ -73,7 +73,7 @@ public class MMSApp {
         }
 
         logger.info("Setting up Blaster Design Factory status...");
-        spaceStatus = new SpaceStatus(); // This depends on a bot being enabled, as it needs to set the status.
+        spaceStatus = new SpaceStatus(runtime); // This depends on a bot being enabled, as it needs to set the status.
 
         logger.info("Starting door monitor...");
         try {

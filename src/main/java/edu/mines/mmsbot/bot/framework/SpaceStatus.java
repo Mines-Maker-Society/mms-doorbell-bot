@@ -1,6 +1,7 @@
 package edu.mines.mmsbot.bot.framework;
 
 import edu.mines.mmsbot.MMSContext;
+import edu.mines.mmsbot.bot.BotRuntime;
 import edu.mines.mmsbot.data.OperationStatistics;
 import edu.mines.mmsbot.util.EmbedUtils;
 import edu.mines.mmsbot.util.TimeUtils;
@@ -20,7 +21,9 @@ import java.util.Date;
 
 public class SpaceStatus implements MMSContext {
 
+    private final BotRuntime runtime;
     private SpaceState state;
+    
     public enum SpaceState {
         OPEN(false, false),
         LOCKED(true, false),
@@ -50,13 +53,15 @@ public class SpaceStatus implements MMSContext {
         public SpaceState override() {
             return locked ? LOCKED_OVERRIDDEN : OPEN_OVERRIDDEN;
         }
-
+        
         public static SpaceState fromSensor(boolean locked) {
             return locked ? LOCKED : OPEN;
         }
     }
 
-    public SpaceStatus() {
+    public SpaceStatus(BotRuntime runtime) {
+        this.runtime = runtime;
+
         OperationStatistics.Event lastEvent = stats().getLastEvent(0);
 
         boolean locked = lastEvent == null

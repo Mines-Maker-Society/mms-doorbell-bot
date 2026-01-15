@@ -1,6 +1,5 @@
 package edu.mines.mmsbot.bot.framework;
 
-import edu.mines.mmsbot.MMSApp;
 import edu.mines.mmsbot.MMSContext;
 import edu.mines.mmsbot.util.EmbedUtils;
 import net.dv8tion.jda.api.entities.ISnowflake;

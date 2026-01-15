@@ -69,10 +69,10 @@ public class DoorMonitor implements MMSContext {
         monitorThread = new Thread(() -> {
             try {
                 log().info("Door monitor thread started. Initial sensor state: {}",
-                        lastStableState.get() ? "HIGH (LOCKED)" : "LOW (OPEN)");
+                        lastStableState.get() ? "HIGH (OPEN)" : "LOW (LOCKED)");
 
                 while (monitoring) {
-                    boolean currentRead = input.state().isHigh();
+                    boolean currentRead = !input.state().isHigh();
 
                     if (currentRead == lastReadState.get()) {
                         // State hasn't changed, increment debounce counter

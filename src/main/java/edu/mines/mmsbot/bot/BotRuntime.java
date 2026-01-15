@@ -38,7 +38,8 @@ public class BotRuntime implements MMSContext {
 
         registerListeners(jda,listeners);
         registerCommands(jda,commands);
-
+        
+        jda.getPresence().setStatus(OnlineStatus.ONLINE);
         jda.getPresence().setActivity(Activity.customStatus("MMS Bot is Operational."));
     }
 

@@ -1,12 +1,9 @@
 package edu.mines.mmsbot.bot.listeners;
 
-import edu.mines.mmsbot.MMSApp;
 import edu.mines.mmsbot.MMSContext;
 import edu.mines.mmsbot.util.EmbedUtils;
-import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.*;
-import net.dv8tion.jda.api.entities.channel.concrete.PrivateChannel;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.jetbrains.annotations.NotNull;
@@ -14,7 +11,6 @@ import org.jetbrains.annotations.NotNull;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
-import java.util.List;
 
 public class ClaimListener extends ListenerAdapter implements MMSContext {
 
@@ -31,7 +27,7 @@ public class ClaimListener extends ListenerAdapter implements MMSContext {
                             .setTitle("Unable to claim event")
                             .setDescription("Only key holders (%s) may claim events.".formatted(runtime().getServer().getKeyHolderRole().getAsMention()))
                             .build()
-            ).queue();
+            ).setEphemeral(true).queue();
             return;
         }
 

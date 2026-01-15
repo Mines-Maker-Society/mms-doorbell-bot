@@ -6,9 +6,7 @@ import edu.mines.mmsbot.util.TimeUtils;
 import java.io.File;
 import java.sql.*;
 import java.time.*;
-import java.time.format.TextStyle;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class OperationStatistics implements MMSContext {
 
