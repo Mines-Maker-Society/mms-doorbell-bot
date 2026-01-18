@@ -30,6 +30,7 @@ public class StatsCommand extends AbstractCommand {
 
     @Override
     public void execute(SlashCommandInteractionEvent event) {
+        event.deferReply().queue();
         long startTime = System.currentTimeMillis();
 
         if (cachedReport == null || cachedReport.isExpired()) {
@@ -43,11 +44,13 @@ public class StatsCommand extends AbstractCommand {
         if (summaryEmbed != null) {
             summaryEmbed.setFooter("Retrieved in " + TimeUtils.formatDuration(System.currentTimeMillis() - startTime, true) +
                     " (" + TimeUtils.formatDuration(cachedReport.getAge(), false) + " old)");
+            event.getHook().editOriginalEmbeds(summaryEmbed.build())
+                    .submit().thenAccept(action->{
+                        action.editMessageComponents(ActionRow.of(createStatsMenu())).queue();
+                    });
+        } else {
+            throw new RuntimeException("Summary embed was null.");
         }
-
-        event.replyEmbeds(summaryEmbed.build())
-                .addComponents(ActionRow.of(createStatsMenu()))
-                .queue();
     }
 
     /**
@@ -94,15 +97,32 @@ public class StatsCommand extends AbstractCommand {
         return switch (statType) {
             case SESSION_AVERAGES -> {
                 log().info("Calculating session averages...");
-                SessionStats sessionStats = stats().getSessionStatistics();
+                SessionStats[] stats = stats().getSessionStatistics();
+                SessionStats openStats = stats[0];
+                SessionStats closedStats = stats[1];
 
                 StringBuilder desc = new StringBuilder();
-                desc.append("**Average Open Duration:** ").append(TimeUtils.formatDuration(sessionStats.averageOpenDuration(), false)).append("\n");
-                desc.append("**Average Closed Duration:** ").append(TimeUtils.formatDuration(sessionStats.averageClosedDuration(), false)).append("\n");
-                desc.append("**Longest Session:** ").append(TimeUtils.formatDuration(sessionStats.longestSession(), false)).append("\n");
-                desc.append("**Shortest Session:** ").append(TimeUtils.formatDuration(sessionStats.shortestSession(), false)).append("\n");
-                desc.append("**Total Sessions:** ").append(sessionStats.totalSessions());
+                desc.append("**__Open Session Stats__:** *(")
+                        .append(TimeUtils.formatDuration(openStats.totalSessionTime(),false))
+                        .append(" over ")
+                        .append(openStats.totalSessions()).append(" sessions)*\n");
+                desc.append("**Average Open Duration:** ").append(TimeUtils.formatDuration(openStats.averageDuration(), false)).append("\n");
+                desc.append("**Median Open Duration:** ").append(TimeUtils.formatDuration(openStats.medianDuration(), false)).append("\n");
+                desc.append("**Standard Deviation:** ").append(TimeUtils.formatDuration(Math.round(openStats.standardDeviation()), false)).append("\n");
+                desc.append("**Longest Open Session:** ").append(TimeUtils.formatDuration(openStats.longestSession(), false)).append("\n");
+                desc.append("**Shortest Open Session:** ").append(TimeUtils.formatDuration(openStats.shortestSession(), false)).append("\n");
 
+
+                desc.append("\n").append("**__Closed Session Stats__:** *(")
+                        .append(TimeUtils.formatDuration(closedStats.totalSessionTime(),false))
+                        .append(" over ")
+                        .append(closedStats.totalSessions()).append(" sessions)*\n");
+                desc.append("**Average Closed Duration:** ").append(TimeUtils.formatDuration(closedStats.averageDuration(), false)).append("\n");
+                desc.append("**Median Closed Duration:** ").append(TimeUtils.formatDuration(closedStats.medianDuration(), false)).append("\n");
+                desc.append("**Standard Deviation:** ").append(TimeUtils.formatDuration(Math.round(closedStats.standardDeviation()), false)).append("\n");
+                desc.append("**Longest Closed Session:** ").append(TimeUtils.formatDuration(closedStats.longestSession(), false)).append("\n");
+                desc.append("**Shortest Closed Session:** ").append(TimeUtils.formatDuration(closedStats.shortestSession(), false)).append("\n");
+                
                 yield EmbedUtils.defaultEmbed()
                         .setTitle("⏱️ Session Duration Statistics")
                         .setDescription(desc.toString());
@@ -115,12 +135,12 @@ public class StatsCommand extends AbstractCommand {
                 StringBuilder desc = new StringBuilder();
 
                 if (timeStats.averageOpenTime() != null) {
-                    desc.append("**Average Opening Time:** ").append(formatTime(timeStats.averageOpenTime())).append("\n");
+                    desc.append("**Average Opening Time:** ").append(TimeUtils.formatTime(timeStats.averageOpenTime())).append("\n");
                     desc.append(createHourDistribution(timeStats.operatingHours().stream().map(OperatingHours::open).toList(), "Opens")).append("\n\n");
                 }
 
                 if (timeStats.averageCloseTime() != null) {
-                    desc.append("**Average Closing Time:** ").append(formatTime(timeStats.averageCloseTime())).append("\n");
+                    desc.append("**Average Closing Time:** ").append(TimeUtils.formatTime(timeStats.averageCloseTime())).append("\n");
                     desc.append(createHourDistribution(timeStats.operatingHours().stream().map(OperatingHours::close).toList(), "Closes"));
                 }
 
@@ -163,19 +183,10 @@ public class StatsCommand extends AbstractCommand {
                     String dayName = day.getDisplayName(TextStyle.SHORT, Locale.US);
                     String bar = createBar(avgDuration, maxAvgDuration, 15);
 
-                    desc.append("`").append(String.format("%-3s", dayName)).append("` ");
+                    desc.append("`").append("%-3s".formatted(dayName)).append("` ");
                     desc.append(bar);
 
-                    desc.append(" ");
-                    desc.append(opens).append(" opens");
-
-                    if (avgDuration > 0) {
-                        desc.append(" (avg ")
-                                .append(TimeUtils.formatDuration(avgDuration, false))
-                                .append(")");
-                    }
-
-                    desc.append("\n");
+                    desc.append(" average ").append(TimeUtils.formatDuration(avgDuration, false).replaceAll(", \\d+ seconds","")).append(" across ").append(opens).append(" opens").append("\n");
                 }
 
                 yield EmbedUtils.defaultEmbed()
@@ -300,20 +311,20 @@ public class StatsCommand extends AbstractCommand {
             case SUMMARY -> {
                 log().info("Generating comprehensive report...");
 
-                SessionStats sessionStats = stats().getSessionStatistics();
+                SessionStats[] sessionStats = stats().getSessionStatistics();
                 TimeOfDayStats timeStats = stats().getTimeOfDayStatistics();
                 DayOfWeekStats dayStats = stats().getDayOfWeekStatistics();
                 StreakStats streakStats = stats().getStreakStatistics();
 
                 StringBuilder desc = new StringBuilder();
-                desc.append("**Total Operating Time:** ").append(TimeUtils.formatDuration(stats().getTotalOperatingTime(), false)).append("\n");
-                desc.append("**Total Sessions:** ").append(sessionStats.totalSessions()).append("\n");
-                desc.append("**Avg Session Length:** ").append(TimeUtils.formatDuration(sessionStats.averageOpenDuration(), false)).append("\n");
-                desc.append("**Longest Session:** ").append(TimeUtils.formatDuration(sessionStats.longestSession(), false)).append("\n");
+                desc.append("**Total Operating Time:** ").append(TimeUtils.formatDuration(sessionStats[0].totalSessionTime(), false)).append("\n");
+                desc.append("**Total Open Sessions:** ").append(sessionStats[0].totalSessions()).append("\n");
+                desc.append("**Avg Open Session Length:** ").append(TimeUtils.formatDuration(sessionStats[0].averageDuration(), false)).append("\n");
+                desc.append("**Longest Open Session:** ").append(TimeUtils.formatDuration(sessionStats[0].longestSession(), false)).append("\n");
                 desc.append("**Current Streak:** ").append(streakStats.currentStreak()).append(" day").append(streakStats.currentStreak() == 1 ? "" : "s").append("\n\n");
 
-                if (timeStats.averageOpenTime() != null) desc.append("**Typical Opening:** ").append(formatTime(timeStats.averageOpenTime())).append("\n");
-                if (timeStats.averageCloseTime() != null) desc.append("**Typical Closing:** ").append(formatTime(timeStats.averageCloseTime())).append("\n");
+                if (timeStats.averageOpenTime() != null) desc.append("**Typical Opening:** ").append(TimeUtils.formatTime(timeStats.averageOpenTime())).append("\n");
+                if (timeStats.averageCloseTime() != null) desc.append("**Typical Closing:** ").append(TimeUtils.formatTime(timeStats.averageCloseTime())).append("\n");
                 if (dayStats.busiestDay() != null) desc.append("**Busiest Day:** ").append(dayStats.busiestDay().getDisplayName(TextStyle.FULL, Locale.US)).append("\n");
 
                 yield EmbedUtils.defaultEmbed()
@@ -321,17 +332,6 @@ public class StatsCommand extends AbstractCommand {
                         .setDescription(desc.toString());
             }
         };
-    }
-
-    private String formatTime(LocalTime time) {
-        int hour = time.getHour();
-        int minute = time.getMinute();
-
-        int displayHour = hour % 12;
-        if (displayHour == 0) displayHour = 12;
-        String period = hour < 12 ? "AM" : "PM";
-
-        return String.format("%d:%02d %s", displayHour, minute, period);
     }
 
     private String createHourDistribution(List<LocalTime> times, String label) {

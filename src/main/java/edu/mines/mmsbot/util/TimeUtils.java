@@ -1,6 +1,7 @@
 package edu.mines.mmsbot.util;
 
 import java.text.SimpleDateFormat;
+import java.time.LocalTime;
 import java.util.Date;
 
 public final class TimeUtils {
@@ -15,6 +16,17 @@ public final class TimeUtils {
         Date date = new Date(milliseconds);
         SimpleDateFormat sdf = new SimpleDateFormat("HH:mm");
         return sdf.format(date);
+    }
+
+    public static String formatTime(LocalTime time) {
+        int hour = time.getHour();
+        int minute = time.getMinute();
+
+        int displayHour = hour % 12;
+        if (displayHour == 0) displayHour = 12;
+        String period = hour < 12 ? "AM" : "PM";
+
+        return String.format("%d:%02d %s", displayHour, minute, period);
     }
 
     public static String formatDuration(long milliseconds, boolean includeMillis) {

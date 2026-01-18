@@ -103,42 +103,13 @@ public class OperationStatistics implements MMSContext {
                 String eventType = rs.getString("event_type");
                 long userId = rs.getLong("user_id");
 
-                return new Event(timestamp,EventType.valueOf(eventType),userId);
+                return new Event(timestamp, EventType.valueOf(eventType), userId);
             }
 
             return null;
         } catch (SQLException e) {
-            log().error("Error fetching event with id {}: {}.",eventId,e.getMessage(),e);
+            log().error("Error fetching event with id {}: {}.", eventId, e.getMessage(), e);
             return null;
-        }
-    }
-
-    public long getTotalOperatingTime() {
-        try (Statement stmt = conn.createStatement()) {
-            ResultSet rs = stmt.executeQuery("SELECT timestamp, event_type FROM events ORDER BY timestamp");
-
-            long totalTime = 0;
-            Long lastOpenTime = null;
-
-            while (rs.next()) {
-                long timestamp = rs.getLong("timestamp");
-                String eventType = rs.getString("event_type");
-
-                if (eventType.equals("OPEN")) {
-                    lastOpenTime = timestamp;
-                } else if (eventType.equals("LOCK") && lastOpenTime != null) {
-                    totalTime += (timestamp - lastOpenTime);
-                    lastOpenTime = null;
-                }
-            }
-
-            if (lastOpenTime != null) totalTime += (System.currentTimeMillis() - lastOpenTime);
-
-            return totalTime;
-
-        } catch (SQLException e) {
-            log().error("Error calculating total operating time: {}", e.getMessage(),e);
-            return 0;
         }
     }
 
@@ -190,66 +161,88 @@ public class OperationStatistics implements MMSContext {
         }
     }
 
-    public SessionStats getSessionStatistics() {
+    public SessionStats[] getSessionStatistics() {
         try (Statement stmt = conn.createStatement()) {
-            ResultSet rs = stmt.executeQuery("SELECT timestamp, event_type FROM events ORDER BY timestamp");
+            ResultSet rs = stmt.executeQuery(
+                    "SELECT timestamp, event_type FROM events ORDER BY timestamp"
+            );
 
-            List<Long> sessionDurations = new ArrayList<>();
+            List<Long> openDurations = new ArrayList<>();
             List<Long> closedDurations = new ArrayList<>();
+
             Long lastOpenTime = null;
             Long lastCloseTime = null;
-            long longestSession = 0;
-            long shortestSession = Long.MAX_VALUE;
 
             while (rs.next()) {
                 long timestamp = rs.getLong("timestamp");
                 String eventType = rs.getString("event_type");
 
-                if (eventType.equals("OPEN")) {
-                    if (lastCloseTime != null) closedDurations.add(timestamp - lastCloseTime);
-
+                if ("OPEN".equals(eventType)) {
+                    if (lastCloseTime != null) {
+                        closedDurations.add(timestamp - lastCloseTime);
+                    }
                     lastOpenTime = timestamp;
-                } else if (eventType.equals("LOCK") && lastOpenTime != null) {
-                    long duration = timestamp - lastOpenTime;
-                    sessionDurations.add(duration);
-                    longestSession = Math.max(longestSession, duration);
-                    if (duration > 0) shortestSession = Math.min(shortestSession, duration);
-
+                } else if ("LOCK".equals(eventType) && lastOpenTime != null) {
+                    openDurations.add(timestamp - lastOpenTime);
                     lastCloseTime = timestamp;
                     lastOpenTime = null;
                 }
             }
-
+            
             if (lastOpenTime != null) {
-                long currentDuration = System.currentTimeMillis() - lastOpenTime;
-                sessionDurations.add(currentDuration);
-                longestSession = Math.max(longestSession, currentDuration);
-                if (currentDuration > 0) shortestSession = Math.min(shortestSession, currentDuration);
+                openDurations.add(System.currentTimeMillis() - lastOpenTime);
             }
 
-            long avgOpen = sessionDurations.isEmpty()
-                    ? 0
-                    : (long) sessionDurations.stream().mapToLong(Long::longValue).average().orElse(0);
-            long avgClosed = closedDurations.isEmpty()
-                    ? 0
-                    : (long) closedDurations.stream().mapToLong(Long::longValue).average().orElse(0);
-
-            if (shortestSession == Long.MAX_VALUE) shortestSession = 0;
-
-            return new SessionStats(
-                    avgOpen,
-                    avgClosed,
-                    longestSession,
-                    shortestSession,
-                    sessionDurations.size()
-            );
+            return new SessionStats[] {
+                    buildStats(openDurations),
+                    buildStats(closedDurations)
+            };
 
         } catch (SQLException e) {
-            log().error("Error calculating session statistics: {}", e.getMessage(),e);
-            return new SessionStats(0, 0, 0, 0, 0);
+            log().error("Error calculating session statistics: {}", e.getMessage(), e);
+            return new SessionStats[] {
+                    new SessionStats(0, 0, 0f, 0, 0, 0, 0),
+                    new SessionStats(0, 0, 0f, 0, 0, 0, 0)
+            };
         }
     }
 
+
+    private SessionStats buildStats(List<Long> durations) {
+        if (durations.isEmpty()) return new SessionStats(0, 0, 0f, 0, 0, 0, 0);
+
+        durations.sort(Long::compareTo);
+
+        long totalTime = durations.stream().mapToLong(Long::longValue).sum();
+        int count = durations.size();
+
+        long average = totalTime / count;
+
+        long median = (count % 2 == 0)
+                ? (durations.get(count / 2 - 1) + durations.get(count / 2)) / 2
+                : durations.get(count / 2);
+
+        double variance = durations.stream()
+                .mapToDouble(d -> Math.pow(d - average, 2))
+                .average()
+                .orElse(0);
+
+        float stdDev = (float) Math.sqrt(variance);
+
+        long longest = durations.get(count - 1);
+        long shortest = durations.getFirst();
+
+        return new SessionStats(
+                average,
+                median,
+                stdDev,
+                longest,
+                shortest,
+                count,
+                totalTime
+        );
+    }
+    
     public TimeOfDayStats getTimeOfDayStatistics() {
         try (Statement stmt = conn.createStatement()) {
             ResultSet rs = stmt.executeQuery("SELECT timestamp, event_type FROM events ORDER BY timestamp");
@@ -440,11 +433,13 @@ public class OperationStatistics implements MMSContext {
     }
 
     public record SessionStats(
-            long averageOpenDuration,
-            long averageClosedDuration,
+            long averageDuration,
+            long medianDuration,
+            float standardDeviation,
             long longestSession,
             long shortestSession,
-            int totalSessions
+            int totalSessions,
+            long totalSessionTime
     ) {}
 
     public record TimeOfDayStats(

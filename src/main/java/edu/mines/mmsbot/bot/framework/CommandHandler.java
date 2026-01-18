@@ -1,6 +1,8 @@
 package edu.mines.mmsbot.bot.framework;
 
 import edu.mines.mmsbot.MMSContext;
+import edu.mines.mmsbot.util.EmbedUtils;
+import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 
@@ -13,7 +15,22 @@ public class CommandHandler extends ListenerAdapter implements MMSContext {
         final List<AbstractCommand> commandList = runtime().getCommandList();
         for (AbstractCommand abstractCommand : commandList) {
             if (!abstractCommand.getCommand().getName().equals(name)) continue;
-            abstractCommand.execute(event);
+            try {
+                abstractCommand.execute(event);
+            } catch (Exception ex) {
+                log().error("An error occurred while executing a command.",ex);
+                MessageEmbed reply = EmbedUtils.defaultEmbed()
+                        .setTitle("An error occurred while processing this command.")
+                        .setDescription("Please contact the Webmaster.")
+                        .addField("Reason",ex.getMessage(),false)
+                        .build();
+                
+                if (event.isAcknowledged()) {
+                    event.getHook().editOriginalEmbeds(reply).queue();
+                } else {
+                    event.replyEmbeds(reply).queue();
+                }
+            }
         }
     }
 }

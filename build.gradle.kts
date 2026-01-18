@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "edu.mines"
-version = "1.1-SNAPSHOT"
+version = "1.0.0"
 
 repositories {
     mavenCentral()
@@ -28,4 +28,10 @@ tasks.test {
 
 application {
     mainClass.set("edu.mines.mmsbot.MMSApp")
+}
+
+tasks.jar {
+    manifest {
+        attributes["Implementation-Version"] = project.version
+    }
 }
