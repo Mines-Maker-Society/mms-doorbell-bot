@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="DataSourcePerFileMappings">
+    <file url="file://$APPLICATION_CONFIG_DIR$/consoles/db/e4dad67c-257b-499a-9645-51d9630f549a/console_1.sql" value="e4dad67c-257b-499a-9645-51d9630f549a" />
     <file url="file://$PROJECT_DIR$/src/main/java/edu/mines/mmsbot/data/OperationStatistics.java" value="800ebe0f-86a7-4e55-8d4b-fbc592024029" />
   </component>
 </project>

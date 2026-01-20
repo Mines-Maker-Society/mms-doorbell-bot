@@ -6,6 +6,10 @@ import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 
 public class JarManager {
+
+    /**
+     * Gets a jar file from the current directory starting with the specified string
+     */
     public static File findCurrentJar(String namePattern) {
         File dir = new File(".");
         File[] files = dir.listFiles((d, name) -> name.startsWith(namePattern) && name.endsWith(".jar"));
@@ -20,6 +24,9 @@ public class JarManager {
         return null;
     }
 
+    /**
+     * Reads the Implementation-Version property of a jar's main manifest
+     */
     public static String getJarVersion(File jarFile) {
         try (JarFile jar = new JarFile(jarFile)) {
             Manifest manifest = jar.getManifest();

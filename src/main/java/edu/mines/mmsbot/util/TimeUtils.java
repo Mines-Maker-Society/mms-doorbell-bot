@@ -47,30 +47,20 @@ public final class TimeUtils {
         milliseconds = appendUnit(result, milliseconds, SECOND, "second");
 
         if (includeMillis && milliseconds > 0) {
-            appendComma(result);
-            result.append(milliseconds)
-                    .append(milliseconds == 1 ? " millisecond" : " milliseconds");
+            if (!result.isEmpty()) result.append(", ");
+            result.append(milliseconds).append(milliseconds == 1 ? " millisecond" : " milliseconds");
         }
 
-        return result.length() == 0 ? "0 milliseconds" : result.toString();
+        return result.isEmpty() ? "0 milliseconds" : result.toString();
     }
 
     private static long appendUnit(StringBuilder result, long remaining, long unitMillis, String name) {
         long value = remaining / unitMillis;
         if (value > 0) {
-            appendComma(result);
-            result.append(value)
-                    .append(' ')
-                    .append(name)
-                    .append(value == 1 ? "" : "s");
+            if (!result.isEmpty()) result.append(", ");
+            result.append(value).append(' ').append(name).append(value == 1 ? "" : "s");
             remaining %= unitMillis;
         }
         return remaining;
-    }
-
-    private static void appendComma(StringBuilder result) {
-        if (result.length() > 0) {
-            result.append(", ");
-        }
     }
 }
