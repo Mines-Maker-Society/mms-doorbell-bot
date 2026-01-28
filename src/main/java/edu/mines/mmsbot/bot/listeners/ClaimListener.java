@@ -37,7 +37,7 @@ public class ClaimListener extends ListenerAdapter implements MMSContext {
         String eventString = buttonID.replaceAll("(lock-event_|open-event_)","");
         long eventID = Long.parseLong(eventString);
         try {
-            if (!stats().claimEvent(eventID,user.getIdLong())) {
+            if (!stats().getOpStats().claimEvent(eventID,user.getIdLong())) {
                 event.replyEmbeds(
                         EmbedUtils.defaultEmbed()
                                 .setTitle("Event already claimed")
@@ -45,7 +45,7 @@ public class ClaimListener extends ListenerAdapter implements MMSContext {
                                 .build()
                 ).setEphemeral(true).queue();
 
-                updateMessage(message,lock,stats().getEvent(eventID).userID());
+                updateMessage(message,lock,stats().getOpStats().getEvent(eventID).userID());
 
                 return;
             }

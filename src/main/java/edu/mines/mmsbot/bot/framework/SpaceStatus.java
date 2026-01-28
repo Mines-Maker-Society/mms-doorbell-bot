@@ -3,6 +3,7 @@ package edu.mines.mmsbot.bot.framework;
 import edu.mines.mmsbot.MMSContext;
 import edu.mines.mmsbot.bot.BotRuntime;
 import edu.mines.mmsbot.data.OperationStatistics;
+import edu.mines.mmsbot.data.util.OpStatsUtils;
 import edu.mines.mmsbot.util.EmbedUtils;
 import edu.mines.mmsbot.util.TimeUtils;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
@@ -62,10 +63,10 @@ public class SpaceStatus implements MMSContext {
     public SpaceStatus(BotRuntime runtime) {
         this.runtime = runtime;
 
-        OperationStatistics.Event lastEvent = stats().getLastEvent(0);
+        OpStatsUtils.Event lastEvent = stats().getOpStats().getLastEvent(0);
 
         boolean locked = lastEvent == null
-                || lastEvent.eventType().equals(OperationStatistics.EventType.LOCK);
+                || lastEvent.eventType().equals(OpStatsUtils.EventType.LOCK);
 
         state = SpaceState.fromSensor(locked);
 
@@ -102,10 +103,10 @@ public class SpaceStatus implements MMSContext {
         log().info("Updated stored state to {}, notifying members.", state);
 
         if (sensorShowsLocked) {
-            long eventID = stats().logEvent(new OperationStatistics.Event(timestamp, OperationStatistics.EventType.LOCK, userID));
+            long eventID = stats().getOpStats().logEvent(new OpStatsUtils.Event(timestamp, OpStatsUtils.EventType.LOCK, userID));
             sendNotification(userID, false, timestamp,eventID,true);
         } else {
-            long eventID = stats().logEvent(new OperationStatistics.Event(timestamp, OperationStatistics.EventType.OPEN, userID));
+            long eventID = stats().getOpStats().logEvent(new OpStatsUtils.Event(timestamp, OpStatsUtils.EventType.OPEN, userID));
             sendNotification(userID, true, timestamp, eventID,false);
         }
     }
@@ -125,7 +126,7 @@ public class SpaceStatus implements MMSContext {
         log().info("Member {} has manually opened the space.", userID);
 
         long ts = System.currentTimeMillis();
-        long eventID = stats().logEvent(new OperationStatistics.Event(ts, OperationStatistics.EventType.OPEN, userID));
+        long eventID = stats().getOpStats().logEvent(new OpStatsUtils.Event(ts, OpStatsUtils.EventType.OPEN, userID));
 
         sendNotification(userID, pingMembers, ts, eventID,false);
         return true;
@@ -147,7 +148,7 @@ public class SpaceStatus implements MMSContext {
         log().info("Member {} has manually locked the space.", userID);
 
         long ts = System.currentTimeMillis();
-        long eventID = stats().logEvent(new OperationStatistics.Event(ts, OperationStatistics.EventType.LOCK, userID));
+        long eventID = stats().getOpStats().logEvent(new OpStatsUtils.Event(ts, OpStatsUtils.EventType.LOCK, userID));
 
         sendNotification(userID, pingMembers, ts, eventID,true);
         return true;
@@ -162,7 +163,7 @@ public class SpaceStatus implements MMSContext {
         log().info("Enabling OPEN override requested by member {}.", userID);
         state = SpaceState.OPEN_OVERRIDDEN;
 
-        stats().logEvent(new OperationStatistics.Event(System.currentTimeMillis(), OperationStatistics.EventType.OVERRIDE_OPEN, userID));
+        stats().getOpStats().logEvent(new OpStatsUtils.Event(System.currentTimeMillis(), OpStatsUtils.EventType.OVERRIDE_OPEN, userID));
         return true;
     }
 
@@ -175,7 +176,7 @@ public class SpaceStatus implements MMSContext {
         log().info("Enabling LOCK override requested by member {}.", userID);
         state = SpaceState.LOCKED_OVERRIDDEN;
 
-        stats().logEvent(new OperationStatistics.Event(System.currentTimeMillis(), OperationStatistics.EventType.OVERRIDE_LOCK, userID));
+        stats().getOpStats().logEvent(new OpStatsUtils.Event(System.currentTimeMillis(), OpStatsUtils.EventType.OVERRIDE_LOCK, userID));
         return true;
     }
 
@@ -192,9 +193,9 @@ public class SpaceStatus implements MMSContext {
 
         state = SpaceState.fromSensor(sensorLocked);
 
-        stats().logEvent(new OperationStatistics.Event(
+        stats().getOpStats().logEvent(new OpStatsUtils.Event(
                 System.currentTimeMillis(),
-                OperationStatistics.EventType.CLEAR_OVERRIDE,
+                OpStatsUtils.EventType.CLEAR_OVERRIDE,
                 userID));
         return true;
     }
@@ -246,7 +247,7 @@ public class SpaceStatus implements MMSContext {
                 ? "🔒 The Blaster Design Factory is no longer open."
                 : "🔒 The Blaster Design Factory has been locked by " + runtime().getJda().getUserById(userID).getAsMention() + ".");
 
-        OperationStatistics.Event lastEvent = stats().getLastEvent(1);
+        OpStatsUtils.Event lastEvent = stats().getOpStats().getLastEvent(1);
 
         log().info("Generating a lock embed for an event that occurred on {}",TimeUtils.formatDate(timestamp));
 
@@ -273,7 +274,7 @@ public class SpaceStatus implements MMSContext {
                 ? "🔓 The Blaster Design Factory is now opened."
                 : "🔓 The Blaster Design Factory has been opened by " + runtime().getJda().getUserById(userID).getAsMention() + ".");
 
-        OperationStatistics.Event lastEvent = stats().getLastEvent(1);
+        OpStatsUtils.Event lastEvent = stats().getOpStats().getLastEvent(1);
 
         log().info("Generating an open embed for an event that occurred on {}",TimeUtils.formatDate(timestamp));
 

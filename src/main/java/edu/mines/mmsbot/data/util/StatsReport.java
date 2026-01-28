@@ -1,4 +1,4 @@
-package edu.mines.mmsbot.data;
+package edu.mines.mmsbot.data.util;
 
 import net.dv8tion.jda.api.EmbedBuilder;
 

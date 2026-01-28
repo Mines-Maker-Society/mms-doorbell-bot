@@ -4,6 +4,7 @@ import edu.mines.mmsbot.bot.BotRuntime;
 import edu.mines.mmsbot.bot.commands.*;
 import edu.mines.mmsbot.bot.framework.CommandHandler;
 import edu.mines.mmsbot.bot.framework.SpaceStatus;
+import edu.mines.mmsbot.bot.listeners.CatListener;
 import edu.mines.mmsbot.bot.listeners.ClaimListener;
 import edu.mines.mmsbot.bot.listeners.LockChannelListener;
 import edu.mines.mmsbot.bot.listeners.StatsListener;
@@ -66,7 +67,7 @@ public class MMSApp {
             runtime = new BotRuntime(
                     config,
                     List.of(new PingCommand(), new LockCommand(), new OpenCommand(), new StatsCommand(), new RoleCommand(), new DataCommand(), new ResumeCommand()),
-                    List.of(new CommandHandler(), new StatsListener(), new ClaimListener(), new LockChannelListener())
+                    List.of(new CommandHandler(), new StatsListener(), new ClaimListener(), new LockChannelListener(), new CatListener())
             );
         } catch (InterruptedException ex) {
             logger.error("Failed to initialize bot: ", ex);
