@@ -1,15 +1,14 @@
 package edu.mines.mmsbot.bot.commands;
 
 import edu.mines.mmsbot.bot.framework.AbstractCommand;
-import edu.mines.mmsbot.data.OperationStatistics.*;
-import edu.mines.mmsbot.data.StatsReport;
-import edu.mines.mmsbot.data.StatsReport.StatType;
+import edu.mines.mmsbot.data.util.OpStatsUtils;
+import edu.mines.mmsbot.data.util.StatsReport;
+import edu.mines.mmsbot.data.util.StatsReport.StatType;
 import edu.mines.mmsbot.util.EmbedUtils;
 import edu.mines.mmsbot.util.TimeUtils;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.selections.StringSelectMenu;
-import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.interactions.InteractionContextType;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
@@ -97,9 +96,9 @@ public class StatsCommand extends AbstractCommand {
         return switch (statType) {
             case SESSION_AVERAGES -> {
                 log().info("Calculating session averages...");
-                SessionStats[] stats = stats().getSessionStatistics();
-                SessionStats openStats = stats[0];
-                SessionStats closedStats = stats[1];
+                OpStatsUtils.SessionStats[] stats = stats().getOpStats().getSessionStatistics();
+                OpStatsUtils.SessionStats openStats = stats[0];
+                OpStatsUtils.SessionStats closedStats = stats[1];
 
                 StringBuilder desc = new StringBuilder();
                 desc.append("**__Open Session Stats__:** *(")
@@ -130,18 +129,18 @@ public class StatsCommand extends AbstractCommand {
 
             case TIME_OF_DAY -> {
                 log().info("Calculating time of day patterns...");
-                TimeOfDayStats timeStats = stats().getTimeOfDayStatistics();
+                OpStatsUtils.TimeOfDayStats timeStats = stats().getOpStats().getTimeOfDayStatistics();
 
                 StringBuilder desc = new StringBuilder();
 
                 if (timeStats.averageOpenTime() != null) {
                     desc.append("**Average Opening Time:** ").append(TimeUtils.formatTime(timeStats.averageOpenTime())).append("\n");
-                    desc.append(createHourDistribution(timeStats.operatingHours().stream().map(OperatingHours::open).toList(), "Opens")).append("\n\n");
+                    desc.append(createHourDistribution(timeStats.operatingHours().stream().map(OpStatsUtils.OperatingHours::open).toList(), "Opens")).append("\n\n");
                 }
 
                 if (timeStats.averageCloseTime() != null) {
                     desc.append("**Average Closing Time:** ").append(TimeUtils.formatTime(timeStats.averageCloseTime())).append("\n");
-                    desc.append(createHourDistribution(timeStats.operatingHours().stream().map(OperatingHours::close).toList(), "Closes"));
+                    desc.append(createHourDistribution(timeStats.operatingHours().stream().map(OpStatsUtils.OperatingHours::close).toList(), "Closes"));
                 }
 
                 if (desc.isEmpty()) desc.append("Not enough data yet!");
@@ -153,7 +152,7 @@ public class StatsCommand extends AbstractCommand {
 
             case DAY_OF_WEEK -> {
                 log().info("Calculating day of week patterns...");
-                DayOfWeekStats dayStats = stats().getDayOfWeekStatistics();
+                OpStatsUtils.DayOfWeekStats dayStats = stats().getOpStats().getDayOfWeekStatistics();
 
                 StringBuilder desc = new StringBuilder();
 
@@ -196,7 +195,7 @@ public class StatsCommand extends AbstractCommand {
 
             case USER_LEADERBOARD -> {
                 log().info("Calculating user statistics...");
-                UserStats userStats = stats().getUserStatistics();
+                OpStatsUtils.UserStats userStats = stats().getOpStats().getUserStatistics();
 
                 StringBuilder desc = new StringBuilder();
                 desc.append("**Most Active Openers:**\n");
@@ -209,8 +208,7 @@ public class StatsCommand extends AbstractCommand {
                 int rank = 1;
                 for (Map.Entry<Long, Integer> entry : topOpeners) {
                     String medal = getMedal(rank);
-                    String username = getUserName(entry.getKey());
-                    desc.append(medal).append(" **").append(username).append("** - ").append(entry.getValue()).append(" opens\n");
+                    desc.append(medal).append(" **<@%s>** - ".formatted(entry.getKey())).append(entry.getValue()).append(" opens\n");
                     rank++;
                 }
 
@@ -224,8 +222,7 @@ public class StatsCommand extends AbstractCommand {
                 rank = 1;
                 for (Map.Entry<Long, Integer> entry : topLockers) {
                     String medal = getMedal(rank);
-                    String username = getUserName(entry.getKey());
-                    desc.append(medal).append(" **").append(username).append("** - ").append(entry.getValue()).append(" locks\n");
+                    desc.append(medal).append(" **<@%s>** - ".formatted(entry.getKey())).append(entry.getValue()).append(" locks\n");
                     rank++;
                 }
 
@@ -236,7 +233,7 @@ public class StatsCommand extends AbstractCommand {
 
             case STREAK_STATS -> {
                 log().info("Calculating streak statistics...");
-                StreakStats streakStats = stats().getStreakStatistics();
+                OpStatsUtils.StreakStats streakStats = stats().getOpStats().getStreakStatistics();
 
                 StringBuilder desc = new StringBuilder();
                 desc.append("**Current Streak:** ").append(streakStats.currentStreak()).append(" day").append(streakStats.currentStreak() == 1 ? "" : "s").append("\n");
@@ -256,11 +253,11 @@ public class StatsCommand extends AbstractCommand {
 
             case HOURLY_HEATMAP -> {
                 log().info("Generating hourly heatmap...");
-                TimeOfDayStats timeStats = stats().getTimeOfDayStatistics();
+                OpStatsUtils.TimeOfDayStats timeStats = stats().getOpStats().getTimeOfDayStatistics();
 
                 Map<Integer, Integer> operatingHourCounts = new HashMap<>();
 
-                for (OperatingHours oh : timeStats.operatingHours()) {
+                for (OpStatsUtils.OperatingHours oh : timeStats.operatingHours()) {
                     LocalTime open = oh.open();
                     LocalTime close = oh.close();
 
@@ -311,10 +308,10 @@ public class StatsCommand extends AbstractCommand {
             case SUMMARY -> {
                 log().info("Generating comprehensive report...");
 
-                SessionStats[] sessionStats = stats().getSessionStatistics();
-                TimeOfDayStats timeStats = stats().getTimeOfDayStatistics();
-                DayOfWeekStats dayStats = stats().getDayOfWeekStatistics();
-                StreakStats streakStats = stats().getStreakStatistics();
+                OpStatsUtils.SessionStats[] sessionStats = stats().getOpStats().getSessionStatistics();
+                OpStatsUtils.TimeOfDayStats timeStats = stats().getOpStats().getTimeOfDayStatistics();
+                OpStatsUtils.DayOfWeekStats dayStats = stats().getOpStats().getDayOfWeekStatistics();
+                OpStatsUtils.StreakStats streakStats = stats().getOpStats().getStreakStatistics();
 
                 StringBuilder desc = new StringBuilder();
                 desc.append("**Total Operating Time:** ").append(TimeUtils.formatDuration(sessionStats[0].totalSessionTime(), false)).append("\n");
@@ -382,14 +379,5 @@ public class StatsCommand extends AbstractCommand {
             case 3 -> "🥉";
             default -> rank + ".";
         };
-    }
-
-    private String getUserName(long userId) {
-        try {
-            Member member = runtime().getServer().getGuild().retrieveMemberById(userId).complete();
-            return member.getEffectiveName();
-        } catch (Exception e) {
-            return "Unknown User (" + userId + ")";
-        }
     }
 }

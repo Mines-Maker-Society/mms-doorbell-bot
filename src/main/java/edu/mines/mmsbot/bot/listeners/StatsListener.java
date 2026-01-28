@@ -2,7 +2,7 @@ package edu.mines.mmsbot.bot.listeners;
 
 import edu.mines.mmsbot.MMSContext;
 import edu.mines.mmsbot.bot.commands.StatsCommand;
-import edu.mines.mmsbot.data.StatsReport.StatType;
+import edu.mines.mmsbot.data.util.StatsReport.StatType;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
