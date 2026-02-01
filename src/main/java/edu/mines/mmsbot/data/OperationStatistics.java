@@ -51,16 +51,9 @@ public class OperationStatistics implements MMSContext {
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp)");
 
             stmt.execute("""
-            CREATE TABLE IF NOT EXISTS message_reactions (
+            CREATE TABLE IF NOT EXISTS message_reacts (
                 message_id INTEGER PRIMARY KEY,
-                reactions INTEGER NOT NULL
-            )
-            """);
-
-            stmt.execute("""
-            CREATE TABLE IF NOT EXISTS user_cats (
-                user_id INTEGER PRIMARY KEY,
-                cats INTEGER NOT NULL
+                reacted_users TEXT NOT NULL
             )
             """);
         }

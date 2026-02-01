@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="DataSourceManagerImpl" format="xml" multifile-model="true">
-    <data-source source="LOCAL" name="stats" uuid="800ebe0f-86a7-4e55-8d4b-fbc592024029">
+    <data-source source="LOCAL" name="stats (mock)" uuid="800ebe0f-86a7-4e55-8d4b-fbc592024029">
       <driver-ref>sqlite.xerial</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>org.sqlite.JDBC</jdbc-driver>
       <jdbc-url>jdbc:sqlite:$PROJECT_DIR$/build/libs/MMSBot/stats.sqlite</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
-    <data-source source="LOCAL" name="stats.sqlite" uuid="e4dad67c-257b-499a-9645-51d9630f549a">
+    <data-source source="LOCAL" name="stats.sqlite (PROD)" uuid="e4dad67c-257b-499a-9645-51d9630f549a">
       <driver-ref>sqlite.xerial</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>org.sqlite.JDBC</jdbc-driver>

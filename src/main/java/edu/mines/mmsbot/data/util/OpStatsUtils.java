@@ -51,14 +51,14 @@ public class OpStatsUtils implements MMSContext {
         try (PreparedStatement stmt = conn.prepareStatement("SELECT timestamp, event_type, user_id FROM events WHERE id = ?")) {
             stmt.setLong(1, eventId);
 
-            ResultSet rs = stmt.executeQuery();
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    long timestamp = rs.getLong("timestamp");
+                    String eventType = rs.getString("event_type");
+                    long userId = rs.getLong("user_id");
 
-            if (rs.next()) {
-                long timestamp = rs.getLong("timestamp");
-                String eventType = rs.getString("event_type");
-                long userId = rs.getLong("user_id");
-
-                return new Event(timestamp, EventType.valueOf(eventType), userId);
+                    return new Event(timestamp, EventType.valueOf(eventType), userId);
+                }
             }
 
             return null;
@@ -75,16 +75,16 @@ public class OpStatsUtils implements MMSContext {
 
             stmt.setInt(1, offset);
 
-            ResultSet rs = stmt.executeQuery();
-
-            if (rs.next()) {
-                long stamp = rs.getLong("timestamp");
-                log().info("Event was on {}", TimeUtils.formatDate(stamp));
-                return new Event(
-                        stamp,
-                        EventType.valueOf(rs.getString("event_type")),
-                        rs.getLong("user_id")
-                );
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    long stamp = rs.getLong("timestamp");
+                    log().info("Event was on {}", TimeUtils.formatDate(stamp));
+                    return new Event(
+                            stamp,
+                            EventType.valueOf(rs.getString("event_type")),
+                            rs.getLong("user_id")
+                    );
+                }
             }
 
             return null;
@@ -97,41 +97,41 @@ public class OpStatsUtils implements MMSContext {
 
     public SessionStats[] getSessionStatistics() {
         try (Statement stmt = conn.createStatement()) {
-            ResultSet rs = stmt.executeQuery(
+            try (ResultSet rs = stmt.executeQuery(
                     "SELECT timestamp, event_type FROM events ORDER BY timestamp"
-            );
+            )) {
 
-            List<Long> openDurations = new ArrayList<>();
-            List<Long> closedDurations = new ArrayList<>();
+                List<Long> openDurations = new ArrayList<>();
+                List<Long> closedDurations = new ArrayList<>();
 
-            Long lastOpenTime = null;
-            Long lastCloseTime = null;
+                Long lastOpenTime = null;
+                Long lastCloseTime = null;
 
-            while (rs.next()) {
-                long timestamp = rs.getLong("timestamp");
-                String eventType = rs.getString("event_type");
+                while (rs.next()) {
+                    long timestamp = rs.getLong("timestamp");
+                    String eventType = rs.getString("event_type");
 
-                if ("OPEN".equals(eventType)) {
-                    if (lastCloseTime != null) {
-                        closedDurations.add(timestamp - lastCloseTime);
+                    if ("OPEN".equals(eventType)) {
+                        if (lastCloseTime != null) {
+                            closedDurations.add(timestamp - lastCloseTime);
+                        }
+                        lastOpenTime = timestamp;
+                    } else if ("LOCK".equals(eventType) && lastOpenTime != null) {
+                        openDurations.add(timestamp - lastOpenTime);
+                        lastCloseTime = timestamp;
+                        lastOpenTime = null;
                     }
-                    lastOpenTime = timestamp;
-                } else if ("LOCK".equals(eventType) && lastOpenTime != null) {
-                    openDurations.add(timestamp - lastOpenTime);
-                    lastCloseTime = timestamp;
-                    lastOpenTime = null;
                 }
+
+                if (lastOpenTime != null) {
+                    openDurations.add(System.currentTimeMillis() - lastOpenTime);
+                }
+
+                return new SessionStats[]{
+                        buildStats(openDurations),
+                        buildStats(closedDurations)
+                };
             }
-
-            if (lastOpenTime != null) {
-                openDurations.add(System.currentTimeMillis() - lastOpenTime);
-            }
-
-            return new SessionStats[] {
-                    buildStats(openDurations),
-                    buildStats(closedDurations)
-            };
-
         } catch (SQLException e) {
             log().error("Error calculating session statistics: {}", e.getMessage(), e);
             return new SessionStats[] {
@@ -224,47 +224,47 @@ public class OpStatsUtils implements MMSContext {
 
     public DayOfWeekStats getDayOfWeekStatistics() {
         try (Statement stmt = conn.createStatement()) {
-            ResultSet rs = stmt.executeQuery("SELECT timestamp, event_type FROM events ORDER BY timestamp");
+            try (ResultSet rs = stmt.executeQuery("SELECT timestamp, event_type FROM events ORDER BY timestamp")) {
 
-            Map<DayOfWeek, Integer> opensByDay = new EnumMap<>(DayOfWeek.class);
-            Map<DayOfWeek, Long> durationByDay = new EnumMap<>(DayOfWeek.class);
+                Map<DayOfWeek, Integer> opensByDay = new EnumMap<>(DayOfWeek.class);
+                Map<DayOfWeek, Long> durationByDay = new EnumMap<>(DayOfWeek.class);
 
-            for (DayOfWeek day : DayOfWeek.values()) {
-                opensByDay.put(day, 0);
-                durationByDay.put(day, 0L);
-            }
-
-            Long lastOpenTime = null;
-            DayOfWeek lastOpenDay = null;
-
-            while (rs.next()) {
-                long timestamp = rs.getLong("timestamp");
-                String eventType = rs.getString("event_type");
-
-                LocalDate date = Instant.ofEpochMilli(timestamp)
-                        .atZone(ZoneId.systemDefault())
-                        .toLocalDate();
-                DayOfWeek day = date.getDayOfWeek();
-
-                if (eventType.equals("OPEN")) {
-                    opensByDay.put(day, opensByDay.get(day) + 1);
-                    lastOpenTime = timestamp;
-                    lastOpenDay = day;
-                } else if (eventType.equals("LOCK") && lastOpenTime != null && lastOpenDay != null) {
-                    long duration = timestamp - lastOpenTime;
-                    durationByDay.put(lastOpenDay, durationByDay.get(lastOpenDay) + duration);
-                    lastOpenTime = null;
-                    lastOpenDay = null;
+                for (DayOfWeek day : DayOfWeek.values()) {
+                    opensByDay.put(day, 0);
+                    durationByDay.put(day, 0L);
                 }
+
+                Long lastOpenTime = null;
+                DayOfWeek lastOpenDay = null;
+
+                while (rs.next()) {
+                    long timestamp = rs.getLong("timestamp");
+                    String eventType = rs.getString("event_type");
+
+                    LocalDate date = Instant.ofEpochMilli(timestamp)
+                            .atZone(ZoneId.systemDefault())
+                            .toLocalDate();
+                    DayOfWeek day = date.getDayOfWeek();
+
+                    if (eventType.equals("OPEN")) {
+                        opensByDay.put(day, opensByDay.get(day) + 1);
+                        lastOpenTime = timestamp;
+                        lastOpenDay = day;
+                    } else if (eventType.equals("LOCK") && lastOpenTime != null && lastOpenDay != null) {
+                        long duration = timestamp - lastOpenTime;
+                        durationByDay.put(lastOpenDay, durationByDay.get(lastOpenDay) + duration);
+                        lastOpenTime = null;
+                        lastOpenDay = null;
+                    }
+                }
+
+                DayOfWeek busiestDay = durationByDay.entrySet().stream()
+                        .max(Map.Entry.comparingByValue())
+                        .map(Map.Entry::getKey)
+                        .orElse(null);
+
+                return new DayOfWeekStats(busiestDay, opensByDay, durationByDay);
             }
-
-            DayOfWeek busiestDay = durationByDay.entrySet().stream()
-                    .max(Map.Entry.comparingByValue())
-                    .map(Map.Entry::getKey)
-                    .orElse(null);
-
-            return new DayOfWeekStats(busiestDay, opensByDay, durationByDay);
-
         } catch (SQLException e) {
             log().error("Error calculating day of week statistics: {}", e.getMessage(),e);
             return new DayOfWeekStats(null, new EnumMap<>(DayOfWeek.class), new EnumMap<>(DayOfWeek.class));
@@ -273,25 +273,25 @@ public class OpStatsUtils implements MMSContext {
 
     public UserStats getUserStatistics() {
         try (Statement stmt = conn.createStatement()) {
-            ResultSet rs = stmt.executeQuery("SELECT user_id, event_type FROM events ORDER BY timestamp");
+            try (ResultSet rs = stmt.executeQuery("SELECT user_id, event_type FROM events ORDER BY timestamp")) {
 
-            Map<Long, Integer> opensByUser = new HashMap<>();
-            Map<Long, Integer> locksByUser = new HashMap<>();
+                Map<Long, Integer> opensByUser = new HashMap<>();
+                Map<Long, Integer> locksByUser = new HashMap<>();
 
-            while (rs.next()) {
-                long userId = rs.getLong("user_id");
-                if (userId == -1) continue;
-                String eventType = rs.getString("event_type");
+                while (rs.next()) {
+                    long userId = rs.getLong("user_id");
+                    if (userId == -1) continue;
+                    String eventType = rs.getString("event_type");
 
-                if (eventType.equals("OPEN")) {
-                    opensByUser.put(userId, opensByUser.getOrDefault(userId, 0) + 1);
-                } else if (eventType.equals("LOCK")) {
-                    locksByUser.put(userId, locksByUser.getOrDefault(userId, 0) + 1);
+                    if (eventType.equals("OPEN")) {
+                        opensByUser.put(userId, opensByUser.getOrDefault(userId, 0) + 1);
+                    } else if (eventType.equals("LOCK")) {
+                        locksByUser.put(userId, locksByUser.getOrDefault(userId, 0) + 1);
+                    }
                 }
+
+                return new UserStats(opensByUser, locksByUser);
             }
-
-            return new UserStats(opensByUser, locksByUser);
-
         } catch (SQLException e) {
             log().error("Error calculating user statistics: {}", e.getMessage(),e);
             return new UserStats(new HashMap<>(), new HashMap<>());
@@ -300,37 +300,37 @@ public class OpStatsUtils implements MMSContext {
 
     public StreakStats getStreakStatistics() {
         try (Statement stmt = conn.createStatement()) {
-            ResultSet rs = stmt.executeQuery("SELECT timestamp, event_type FROM events ORDER BY timestamp");
+            try (ResultSet rs = stmt.executeQuery("SELECT timestamp, event_type FROM events ORDER BY timestamp")) {
 
-            Set<LocalDate> datesOpen = new HashSet<>();
+                Set<LocalDate> datesOpen = new HashSet<>();
 
-            while (rs.next()) {
-                long timestamp = rs.getLong("timestamp");
-                String eventType = rs.getString("event_type");
+                while (rs.next()) {
+                    long timestamp = rs.getLong("timestamp");
+                    String eventType = rs.getString("event_type");
 
-                LocalDate date = Instant.ofEpochMilli(timestamp)
-                        .atZone(ZoneId.systemDefault())
-                        .toLocalDate();
+                    LocalDate date = Instant.ofEpochMilli(timestamp)
+                            .atZone(ZoneId.systemDefault())
+                            .toLocalDate();
 
-                if (eventType.equals("OPEN")) datesOpen.add(date);
+                    if (eventType.equals("OPEN")) datesOpen.add(date);
+                }
+
+                int currentStreak = 0;
+                LocalDate checkDate = LocalDate.now();
+
+                while (datesOpen.contains(checkDate)) {
+                    currentStreak++;
+                    checkDate = checkDate.minusDays(1);
+                }
+
+                List<LocalDate> sortedDates = datesOpen.stream()
+                        .sorted()
+                        .toList();
+
+                int longestStreak = getLongestStreak(sortedDates);
+
+                return new StreakStats(currentStreak, longestStreak, datesOpen.size());
             }
-
-            int currentStreak = 0;
-            LocalDate checkDate = LocalDate.now();
-
-            while (datesOpen.contains(checkDate)) {
-                currentStreak++;
-                checkDate = checkDate.minusDays(1);
-            }
-
-            List<LocalDate> sortedDates = datesOpen.stream()
-                    .sorted()
-                    .toList();
-
-            int longestStreak = getLongestStreak(sortedDates);
-
-            return new StreakStats(currentStreak, longestStreak, datesOpen.size());
-
         } catch (SQLException e) {
             log().error("Error calculating streak statistics: {}", e.getMessage(),e);
             return new StreakStats(0, 0, 0);

@@ -2,7 +2,6 @@ package edu.mines.mmsbot.bot.framework;
 
 import edu.mines.mmsbot.MMSContext;
 import edu.mines.mmsbot.bot.BotRuntime;
-import edu.mines.mmsbot.data.OperationStatistics;
 import edu.mines.mmsbot.data.util.OpStatsUtils;
 import edu.mines.mmsbot.util.EmbedUtils;
 import edu.mines.mmsbot.util.TimeUtils;
@@ -215,7 +214,10 @@ public class SpaceStatus implements MMSContext {
 
         if (userID == -1) action.addComponents(ActionRow.of(createClaimButton(eventID, isLock)));
 
-        action.queue(sentMessage -> cleanClaimButtons(channel, sentMessage));
+        action.queue(sentMessage -> {
+            cleanClaimButtons(channel, sentMessage);
+            stats().getCatStats().storeMessage(sentMessage.getIdLong());
+        });
 
         updateStatus(timestamp);
     }

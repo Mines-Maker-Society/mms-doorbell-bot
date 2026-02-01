@@ -43,6 +43,7 @@ public class StatsReport {
         USER_LEADERBOARD("User Leaderboard", "Most active users for opening and locking"),
         STREAK_STATS("Streak Statistics", "Current and longest consecutive day streaks"),
         HOURLY_HEATMAP("Hourly Heatmap", "Visual representation of hourly activity"),
+        CATS("meow~ :3","Find out which messages and users have the most cat reactions."),
         SUMMARY("Statistics Summary", "Overview of all key statistics");
 
         public final String title;

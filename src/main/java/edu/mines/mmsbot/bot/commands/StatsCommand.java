@@ -1,6 +1,7 @@
 package edu.mines.mmsbot.bot.commands;
 
 import edu.mines.mmsbot.bot.framework.AbstractCommand;
+import edu.mines.mmsbot.data.util.CatStatsUtils;
 import edu.mines.mmsbot.data.util.OpStatsUtils;
 import edu.mines.mmsbot.data.util.StatsReport;
 import edu.mines.mmsbot.data.util.StatsReport.StatType;
@@ -302,6 +303,53 @@ public class StatsCommand extends AbstractCommand {
 
                 yield EmbedUtils.defaultEmbed()
                         .setTitle("🌡️ Operating Hours Heatmap")
+                        .setDescription(desc.toString());
+            }
+            case CATS -> {
+                log().info("Calculating cat statistics...");
+
+
+                List<CatStatsUtils.MessageCatStat> topMessages = stats().getCatStats().getTopMessages(5);
+                List<Map.Entry<Long, Integer>> topUsers = stats().getCatStats().getTopUsers(5);
+
+                StringBuilder desc = new StringBuilder();
+
+                desc.append("**Messages With Most 🐈 Reactions:**\n");
+
+                int rank = 1;
+                long guildId = runtime().getServer().getGuild().getIdLong();
+                long channelId = runtime().getServer().getLockChannel().getIdLong();
+
+                for (CatStatsUtils.MessageCatStat stat : topMessages) {
+                    String medal = getMedal(rank);
+
+                    String link = "https://discord.com/channels/%d/%d/%d"
+                            .formatted(guildId, channelId, stat.messageId());
+
+                    desc.append(medal)
+                            .append(" [Jump to message](")
+                            .append(link)
+                            .append(") - ")
+                            .append(stat.count())
+                            .append(" 🐈\n");
+
+                    rank++;
+                }
+
+                desc.append("\n**Top 🐈 Reactors:**\n");
+
+                rank = 1;
+                for (Map.Entry<Long, Integer> entry : topUsers) {
+                    String medal = getMedal(rank);
+                    desc.append(medal)
+                            .append(" **<@%s>** - ".formatted(entry.getKey()))
+                            .append(entry.getValue())
+                            .append(" reactions\n");
+                    rank++;
+                }
+
+                yield EmbedUtils.defaultEmbed()
+                        .setTitle("🐈 Cat Reaction Leaderboard")
                         .setDescription(desc.toString());
             }
 
