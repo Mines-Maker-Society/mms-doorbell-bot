@@ -12,6 +12,8 @@ import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.interactions.InteractionContextType;
+import net.dv8tion.jda.api.interactions.commands.OptionMapping;
+import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 
 import java.time.DayOfWeek;
@@ -25,15 +27,19 @@ public class StatsCommand extends AbstractCommand {
     private StatsReport cachedReport;
 
     public StatsCommand() {
-        super(Commands.slash("stats","Pull different statistics related to operation hours.").setContexts(InteractionContextType.GUILD));
+        super(Commands.slash("stats","Pull different statistics related to operation hours.")
+                .setContexts(InteractionContextType.GUILD)
+                .addOption(OptionType.BOOLEAN,"cache","Uses cached statistics",false)
+        );
     }
 
     @Override
     public void execute(SlashCommandInteractionEvent event) {
         event.deferReply().queue();
         long startTime = System.currentTimeMillis();
+        OptionMapping useCache = event.getOption("cache");
 
-        if (cachedReport == null || cachedReport.isExpired()) {
+        if (cachedReport == null || cachedReport.isExpired() || (useCache != null && !useCache.getAsBoolean())) {
             log().info("Generating fresh statistics report (cache expired or missing)");
             cachedReport = generateFullReport();
         } else {
@@ -85,6 +91,9 @@ public class StatsCommand extends AbstractCommand {
         return embed;
     }
 
+    /**
+     * Creates a menu based on the enum stat types.
+     */
     public StringSelectMenu createStatsMenu() {
         StringSelectMenu.Builder menu = StringSelectMenu.create("stat-selector");
         for (StatType value : StatType.values()) {
@@ -93,6 +102,9 @@ public class StatsCommand extends AbstractCommand {
         return menu.build();
     }
 
+    /**
+     * Generates all the statistics for a given type
+     */
     private EmbedBuilder generateStatistics(StatType statType) {
         return switch (statType) {
             case SESSION_AVERAGES -> {
@@ -379,6 +391,9 @@ public class StatsCommand extends AbstractCommand {
         };
     }
 
+    /**
+     * For the time of day statistic, makes the shaded time bars.
+     */
     private String createHourDistribution(List<LocalTime> times, String label) {
         if (times.isEmpty()) return "";
 

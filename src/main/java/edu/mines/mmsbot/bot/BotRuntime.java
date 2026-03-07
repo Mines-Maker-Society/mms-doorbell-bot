@@ -1,8 +1,10 @@
 package edu.mines.mmsbot.bot;
 
+import edu.mines.mmsbot.MMSApp;
 import edu.mines.mmsbot.MMSContext;
 import edu.mines.mmsbot.bot.framework.AbstractCommand;
 import edu.mines.mmsbot.bot.framework.SpaceDiscord;
+import edu.mines.mmsbot.bot.framework.SpaceStatus;
 import edu.mines.mmsbot.data.Config;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
@@ -14,6 +16,9 @@ import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class BotRuntime implements MMSContext {
     private final JDA jda;
@@ -43,29 +48,22 @@ public class BotRuntime implements MMSContext {
         jda.getPresence().setActivity(Activity.customStatus("MMS Bot is Operational."));
     }
 
+    /**
+     * Registers all listeners defined in the main class.
+     */
     private void registerListeners(JDA jda, List<ListenerAdapter> listenerAdapters) {
         for (ListenerAdapter listenerAdapter : listenerAdapters) {
             jda.addEventListener(listenerAdapter);
         }
     }
 
-    private void registerCommands(JDA jda, List<AbstractCommand> commandList) { // Me when I don't use reflection
-        jda.retrieveCommands().submit().whenComplete((onlineData, error) -> {
-            final List<SlashCommandData> updatedData = commandList.stream().map(AbstractCommand::getCommand).toList();
-            if (error != null) {
-                log().warn("Error occurred while registering command: ", error);
-                return;
-            }
-            for (SlashCommandData expected : updatedData) {
-                if (!onlineData.stream().map(Command::getName).toList().contains(expected.getName())) {
-                    log().info("Command discrepancy found! Updating application commands.");
-                    jda.updateCommands()
-                            .addCommands(updatedData)
-                            .queue();
-                    break;
-                }
-            }
-        });
+    /**
+     * Registers all the commands defined in the main class.
+     */
+    private void registerCommands(JDA jda, List<AbstractCommand> commands) {
+        jda.updateCommands()
+                .addCommands(commands.stream().map(AbstractCommand::getCommand).toList())
+                .queue();
     }
 
     public List<AbstractCommand> getCommandList() {
@@ -76,6 +74,9 @@ public class BotRuntime implements MMSContext {
         return listenersList;
     }
 
+    /**
+     * Returns the instance of the active command of the class in the parameter.
+     */
     public <T extends AbstractCommand> T getCommand(Class<T> clazz) {
         return commandList.stream()
                 .filter(clazz::isInstance)
@@ -84,6 +85,9 @@ public class BotRuntime implements MMSContext {
                 .orElse(null);
     }
 
+    /**
+     * Returns the instance of the active listener of the class in the parameter.
+     */
     public <T extends ListenerAdapter> T getListener(Class<T> clazz) {
         return listenersList.stream()
                 .filter(clazz::isInstance)

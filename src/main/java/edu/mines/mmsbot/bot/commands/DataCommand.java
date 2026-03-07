@@ -43,6 +43,9 @@ public class DataCommand extends AbstractCommand {
         }
     }
 
+    /**
+     * Exports just the events table of the database as a CSV
+     */
     private void exportCSV(SlashCommandInteractionEvent event) throws Exception {
         Connection conn = stats().getConn();
         File csvFile = File.createTempFile("doorbell_events_", ".csv");
@@ -73,6 +76,10 @@ public class DataCommand extends AbstractCommand {
                 .queue(success -> csvFile.delete(), failure -> csvFile.delete());
     }
 
+
+    /**
+     * Exports the WHOLE databasae in its original format.
+     */
     private void exportSQLiteDatabase(SlashCommandInteractionEvent event) throws Exception {
         String dbPath = config().statisticsFile;
         File dbFile = new File(dbPath);

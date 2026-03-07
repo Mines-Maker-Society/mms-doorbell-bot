@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "edu.mines"
-version = "1.0.3"
+version = "1.1.0" // Remember to increment version in code too
 
 repositories {
     mavenCentral()

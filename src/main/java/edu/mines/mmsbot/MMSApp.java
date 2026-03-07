@@ -4,6 +4,7 @@ import edu.mines.mmsbot.bot.BotRuntime;
 import edu.mines.mmsbot.bot.commands.*;
 import edu.mines.mmsbot.bot.framework.CommandHandler;
 import edu.mines.mmsbot.bot.framework.SpaceStatus;
+import edu.mines.mmsbot.bot.listeners.CatListener;
 import edu.mines.mmsbot.bot.listeners.ClaimListener;
 import edu.mines.mmsbot.bot.listeners.LockChannelListener;
 import edu.mines.mmsbot.bot.listeners.StatsListener;
@@ -21,8 +22,9 @@ import java.util.List;
 public class MMSApp {
 
     private static MMSApp app;
+    public static final String VERSION = "1.1.0";
     private File configFile = new File("MMSBot/config.json");
-    private final Logger logger = LoggerFactory.getLogger("MMS Bot Controller");
+    private final Logger LOGGER = LoggerFactory.getLogger("MMS Bot Controller");
     private Config config;
     private OperationStatistics statistics;
     private BotRuntime runtime;
@@ -61,33 +63,33 @@ public class MMSApp {
         statistics = new OperationStatistics();
         loadStatistics(config); // This loads the database, it depends on the config being enabled.
 
-        logger.info("Initializing bot runtime...");
+        LOGGER.info("Initializing bot runtime...");
         try { // Listeners and commands added here because im too lazy to do reflection
             runtime = new BotRuntime(
                     config,
                     List.of(new PingCommand(), new LockCommand(), new OpenCommand(), new StatsCommand(), new RoleCommand(), new DataCommand(), new ResumeCommand(), new DeveloperCommand()),
-                    List.of(new CommandHandler(), new StatsListener(), new ClaimListener(), new LockChannelListener())
+                    List.of(new CommandHandler(), new StatsListener(), new ClaimListener(), new LockChannelListener(), new CatListener())
             );
         } catch (InterruptedException ex) {
-            logger.error("Failed to initialize bot: ", ex);
+            LOGGER.error("Failed to initialize bot: ", ex);
         }
 
-        logger.info("Setting up Blaster Design Factory status...");
+        LOGGER.info("Setting up Blaster Design Factory status...");
         spaceStatus = new SpaceStatus(runtime); // This depends on a bot being enabled, as it needs to set the status.
 
-        logger.info("Starting door monitor...");
+        LOGGER.info("Starting door monitor...");
         try {
             doorMonitor = new DoorMonitor(config.virtual);
             doorMonitor.setupMonitor();
             doorMonitor.getMonitorThread().start();
         } catch (IllegalStateException e) {
-            logger.error("Failed to initialize GPIO: ", e);
+            LOGGER.error("Failed to initialize GPIO: ", e);
         }
 
-        logger.info("Adding shutdown hooks...");
+        LOGGER.info("Adding shutdown hooks...");
         Runtime.getRuntime().addShutdownHook(new Thread(this::onShutdown));
 
-        logger.info("Bot is now fully operational!"); // :3
+        LOGGER.info("Bot is now fully operational!"); // :3
     }
 
     // Not super crucial, but just provides consistency when testing
@@ -98,32 +100,32 @@ public class MMSApp {
     }
 
     private void loadConfig(Args args) {
-        logger.info("Initializing Config...");
+        LOGGER.info("Initializing Config...");
 
         try {
             File specificFile = new File(args.getArg("config"));
             if (!specificFile.exists()) throw new RuntimeException("Configuration file not found at specified location: " + configFile.getAbsolutePath());
             configFile = specificFile;
         } catch (NullPointerException ex) {
-            logger.warn("Config file not specified, using default configuration file: {}", configFile.getAbsolutePath());
+            LOGGER.warn("Config file not specified, using default configuration file: {}", configFile.getAbsolutePath());
         }
 
         try {
             config = JsonSerializable.load(configFile,Config.class, new Config());
         } catch (Exception ex) {
-            logger.warn("Generating default configuration file: {}", configFile.getAbsolutePath());
+            LOGGER.warn("Generating default configuration file: {}", configFile.getAbsolutePath());
         }
 
-        logger.info("Saving configuration file...");
+        LOGGER.info("Saving configuration file...");
         config.save();
     }
 
     private void loadStatistics(Config config) {
         try {
             statistics.startDatabase(config.statisticsFile);
-            logger.info("Database started.");
+            LOGGER.info("Database started.");
         } catch (Exception ex) {
-            logger.error("Failed to load statistics database: ", ex);
+            LOGGER.error("Failed to load statistics database: ", ex);
             System.exit(1);
         }
     }
@@ -149,7 +151,7 @@ public class MMSApp {
     }
 
     public Logger getLogger() {
-        return logger;
+        return LOGGER;
     }
 
     public File getActiveConfigFile() {

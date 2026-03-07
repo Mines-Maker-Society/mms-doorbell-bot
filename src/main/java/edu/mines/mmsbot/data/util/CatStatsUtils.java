@@ -5,6 +5,9 @@ import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
+import net.dv8tion.jda.api.exceptions.ErrorHandler;
+import net.dv8tion.jda.api.exceptions.ErrorResponseException;
+import net.dv8tion.jda.api.requests.ErrorResponse;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -14,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
@@ -24,36 +28,45 @@ public class CatStatsUtils implements MMSContext {
     public CatStatsUtils(Connection conn) {
         this.conn = conn;
     }
-    
+
+    /**
+     * Scans the lock channel for all MMS bot messages, stores them to the database, then check's the reactions on it
+     */
     public CompletableFuture<AtomicInteger> populateTable() {
         TextChannel channel = runtime().getServer().getLockChannel();
-        AtomicInteger count = new AtomicInteger(0);
         long selfId = runtime().getJda().getSelfUser().getIdLong();
+        AtomicInteger count = new AtomicInteger(0);
+
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
 
         return channel.getIterableHistory()
                 .forEachAsync(message -> {
                     if (message.getAuthor().getIdLong() == selfId) {
-                        updateMessage(message);
-                        count.incrementAndGet();
+                        log().info("Found message {}",message.getIdLong());
+                        storeMessage(message.getIdLong());
+                        CompletableFuture<Void> future = updateMessage(message)
+                                .thenRun(count::incrementAndGet);
+
+                        futures.add(future);
                     }
                     return true;
                 })
+                .thenCompose(v ->
+                        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                )
                 .thenApply(v -> count);
     }
 
-
+    /**
+     * Goes down the table updating all emojis for all messages
+     */
     public CompletableFuture<AtomicInteger> updateTable() {
         AtomicInteger count = new AtomicInteger(0);
-        TextChannel channel = runtime().getServer().getLockChannel();
 
         List<CompletableFuture<Void>> futures = pullMessages().stream()
                 .map(id ->
-                        channel.retrieveMessageById(id)
-                                .submit()
-                                .thenAccept(msg -> {
-                                    updateMessage(msg);
-                                    count.incrementAndGet();
-                                })
+                        updateMessage(id.toString())
+                                .thenRun(count::incrementAndGet)
                 )
                 .toList();
 
@@ -62,6 +75,9 @@ public class CatStatsUtils implements MMSContext {
                 .thenApply(v -> count);
     }
 
+    /**
+     * Retrieves the top reacted-to messages on the database limited to the limti param
+     */
     public List<MessageCatStat> getTopMessages(int limit) {
         try (PreparedStatement stmt = conn.prepareStatement("""
             SELECT message_id, reacted_users FROM message_reacts
@@ -88,6 +104,9 @@ public class CatStatsUtils implements MMSContext {
         }
     }
 
+    /**
+     * Returns the top users limited to the param
+     */
     public List<java.util.Map.Entry<Long, Integer>> getTopUsers(int limit) {
         try (PreparedStatement stmt = conn.prepareStatement("""
             SELECT reacted_users FROM message_reacts
@@ -117,6 +136,9 @@ public class CatStatsUtils implements MMSContext {
     }
 
 
+    /**
+     * Pulls all message IDs from the database in long form.
+     */
     public List<Long> pullMessages() {
         try (PreparedStatement stmt = conn.prepareStatement("""
             SELECT * FROM message_reacts
@@ -135,22 +157,55 @@ public class CatStatsUtils implements MMSContext {
             return null;
         }
     }
-    
-    public void updateMessage(Message message) {
-        message.getReactions().forEach(reaction->{
-            if (!reaction.getEmoji().equals(Emoji.fromUnicode("🐈"))) return;
 
-            reaction.retrieveUsers()
-                    .map(userList -> {
-                        updateReactions(message.getIdLong(),userList.stream()
-                                .map(User::getIdLong)
-                                .toList());
-
-                        return userList;
-                    }).queue();
-        });
+    /**
+     * Attempts to retrieve a message from an ID, removing it from the database if it wasn't found
+     */
+    public CompletableFuture<Void> updateMessage(String id) {
+        log().info("Attempting to retrieve message with ID {} for updating",id);
+        return runtime()
+                .getServer()
+                .getLockChannel()
+                .retrieveMessageById(id)
+                .submit()
+                .thenCompose(this::updateMessage)
+                .exceptionally(ex -> {
+                    if (ex.getCause() instanceof ErrorResponseException err &&
+                            err.getErrorResponse() == ErrorResponse.UNKNOWN_MESSAGE) {
+                        deleteMessage(Long.parseLong(id));
+                        return null;
+                    }
+                    throw new CompletionException(ex);
+                });
     }
 
+    /**
+     * Updates the emojis on a message object, assuming it exists.
+     */
+    public CompletableFuture<Void> updateMessage(Message message) {
+        log().info("Updating emojis on message with ID {}",message.getIdLong());
+        List<CompletableFuture<Void>> futures = message.getReactions().stream()
+                .filter(reaction -> reaction.getEmoji().equals(Emoji.fromUnicode("🐈")))
+                .map(reaction ->
+                        reaction.retrieveUsers()
+                                .submit()
+                                .thenAccept(userList ->
+                                        updateReactions(
+                                                message.getIdLong(),
+                                                userList.stream()
+                                                        .map(User::getIdLong)
+                                                        .toList()
+                                        )
+                                )
+                )
+                .toList();
+
+        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+    }
+
+    /**
+     * Stores the ID to the database, defaulting to having no reactions.
+     */
     public void storeMessage(long messageID) {
         try (PreparedStatement stmt = conn.prepareStatement("""
             INSERT INTO message_reacts ( message_id, reacted_users ) values ( ?, ? )
@@ -165,6 +220,24 @@ public class CatStatsUtils implements MMSContext {
         }
     }
 
+    /**
+     * Deletes the requested row
+     */
+    public void deleteMessage(long messageID) {
+        try (PreparedStatement stmt = conn.prepareStatement("""
+            DELETE FROM message_reacts WHERE message_id = ?
+        """)) {
+            stmt.setLong(1,messageID);
+
+            stmt.executeUpdate();
+        } catch (SQLException ex) {
+            log().error("Error logging message to cat table {}: ",messageID,ex);
+        }
+    }
+
+    /**
+     * Updates reactions in the database
+     */
     public void updateReactions(long messageID, List<Long> users) {
         try (PreparedStatement stmt = conn.prepareStatement("""
             INSERT INTO message_reacts ( message_id, reacted_users ) values ( ?, ? )
@@ -172,13 +245,16 @@ public class CatStatsUtils implements MMSContext {
         """)) {
             stmt.setLong(1,messageID);
             stmt.setString(2,packList(users));
-            
+
             stmt.executeUpdate();
         } catch (SQLException ex) {
             log().error("Error updating cat emoji on message {} for users {}: ",messageID,users.toString(),ex);
         }
     }
 
+    /**
+     * Packs a list of ids for database storage
+     */
     public String packList(Collection<Long> ids) {
         return ids.stream()
                 .map(String::valueOf)
@@ -186,7 +262,9 @@ public class CatStatsUtils implements MMSContext {
                 .orElse("");
     }
 
-
+    /**
+     * Unpacks the list of users from the database row
+     */
     public List<Long> extractList(String value) {
         if (value == null || value.isBlank() || value.contains("NO_USERS")) return List.of();
 

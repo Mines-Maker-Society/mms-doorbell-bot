@@ -1,5 +1,6 @@
 package edu.mines.mmsbot.bot.framework;
 
+import edu.mines.mmsbot.MMSApp;
 import edu.mines.mmsbot.MMSContext;
 import edu.mines.mmsbot.bot.BotRuntime;
 import edu.mines.mmsbot.data.util.OpStatsUtils;
@@ -18,6 +19,9 @@ import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.util.Date;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SpaceStatus implements MMSContext {
 
@@ -70,12 +74,7 @@ public class SpaceStatus implements MMSContext {
         state = SpaceState.fromSensor(locked);
 
         log().info("Initialized space state to {}", state);
-
-        if (lastEvent == null) {
-            updateStatus(System.currentTimeMillis());
-        } else {
-            updateStatus(lastEvent.timestamp());
-        }
+        rotateStatus();
     }
 
     /**
@@ -218,8 +217,6 @@ public class SpaceStatus implements MMSContext {
             cleanClaimButtons(channel, sentMessage);
             stats().getCatStats().storeMessage(sentMessage.getIdLong());
         });
-
-        updateStatus(timestamp);
     }
 
     /**
@@ -296,35 +293,77 @@ public class SpaceStatus implements MMSContext {
     }
 
     /**
-     * Internal method for updating bot profile status
-     */
-    private void updateStatus(long updateTime) {
-        log().info("Updating bot status...");
-
-        Date date = new Date(updateTime);
-        SimpleDateFormat sdf = new SimpleDateFormat("EEEE HH:mm");
-        String formattedTime = sdf.format(date);
-
-        String statusText = state.isLocked()
-                ? "🔒 The Blaster Design Factory is locked"
-                : "🔓 The Blaster Design Factory is open";
-
-        runtime().getJda().getPresence().setActivity(Activity.playing(statusText).withState("Last update: " + formattedTime));
-    }
-
-    /**
      * Creates a button which identifies itself to an event and allows users to claim locks or unlocks
      */
     private Button createClaimButton(long eventID, boolean isLockEvent) {
         return Button.of(ButtonStyle.SUCCESS, (isLockEvent ? "lock" : "open") + "-event_" + eventID,"Claim Event", Emoji.fromUnicode("U+1F64B"));
     }
 
+    /**
+     * Rotates the status every 30 seconds to show what version is running.
+     */
+    private void rotateStatus() {
+        AtomicBoolean showVersion = new AtomicBoolean(true);
+
+        Executors.newSingleThreadScheduledExecutor()
+                .scheduleAtFixedRate(() -> {
+                    try {
+                        String firstLine = getStatusText();
+                        String secondLine;
+
+                        if (showVersion.get()) {
+                            secondLine = "Running version v" + MMSApp.VERSION;
+                        } else {
+                            secondLine = getStatusStateLine(System.currentTimeMillis());
+                        }
+
+                        Activity activity = Activity.playing(firstLine).withState(secondLine);
+
+                        runtime.getJda().getPresence().setActivity(activity);
+
+                        showVersion.set(!showVersion.get());
+                    } catch (Exception e) {
+                        log().error("Error updating bot status", e);
+                    }
+                }, 0, 30, TimeUnit.SECONDS);
+    }
+
+    /**
+     * Returns if the space is locked or not. This does not pull from the sensor.
+     */
     public boolean isSpaceLocked() {
         return state.isLocked();
     }
 
+    /**
+     * Returns the space state object instance
+     */
     public SpaceState getState() {
         return state;
     }
 
+    /**
+     * Returns the correct text for the rich presence state.
+     */
+    public String getStatusText() {
+        return state.isLocked()
+                ? "🔒 The Blaster Design Factory is locked"
+                : "🔓 The Blaster Design Factory is open";
+    }
+
+    /**
+     * Formats a timestamp for the RPC
+     */
+    public String getFormattedUpdateTime(long timestamp) {
+        Date date = new Date(timestamp);
+        SimpleDateFormat sdf = new SimpleDateFormat("EEEE HH:mm");
+        return sdf.format(date);
+    }
+
+    /**
+     * Returns the last updated time state line.
+     */
+    public String getStatusStateLine(long timestamp) {
+        return "Last update: " + getFormattedUpdateTime(timestamp);
+    }
 }

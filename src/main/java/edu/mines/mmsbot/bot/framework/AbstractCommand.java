@@ -19,6 +19,9 @@ public abstract class AbstractCommand implements MMSContext {
 
     public abstract void execute(SlashCommandInteractionEvent event);
 
+    /**
+     * Checks if the server this command was executed in is not the target configured server.
+     */
     public boolean serverIncorrect(SlashCommandInteractionEvent event) {
         if (event.getGuild().getIdLong() != config().targetServer.serverID) {
             event.replyEmbeds(EmbedUtils.defaultEmbed()
@@ -31,6 +34,9 @@ public abstract class AbstractCommand implements MMSContext {
         return false;
     }
 
+    /**
+     * Checks if the user who executed this command is a key-holder.
+     */
     public boolean missingKeyholderRole(SlashCommandInteractionEvent event) {
         if (event.getMember() == null) {
             event.replyEmbeds(EmbedUtils.defaultEmbed()
